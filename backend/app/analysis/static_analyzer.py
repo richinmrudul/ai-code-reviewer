@@ -34,7 +34,10 @@ class StaticAnalyzer:
             return self.issues
 
         tree = ast.parse(file_content)
+
+        # Run all checks
         self._check_long_functions(tree)
+        self._check_unused_imports(tree)
 
         return self.issues
 
@@ -53,6 +56,42 @@ class StaticAnalyzer:
                                 file=self.file_path,
                                 line=node.lineno,
                                 type="LongFunction",
-                                message=f"Function '{node.name}' is {length} lines long (limit {self.max_function_length}).",
+                                message=(
+                                    f"Function '{node.name}' is {length} lines long "
+                                    f"(limit {self.max_function_length})."
+                                ),
                             )
                         )
+
+    def _check_unused_imports(self, tree: ast.AST):
+        """Detect imports that are never used."""
+        imported_names = set()
+        used_names = set()
+
+        # Collect imported names
+        for node in ast.walk(tree):
+            if isinstance(node, ast.Import):
+                for alias in node.names:
+                    imported_names.add(alias.asname or alias.name)
+
+            elif isinstance(node, ast.ImportFrom):
+                for alias in node.names:
+                    imported_names.add(alias.asname or alias.name)
+
+        # Collect used names
+        for node in ast.walk(tree):
+            if isinstance(node, ast.Name):
+                used_names.add(node.id)
+
+        # Unused imports = imported but not referenced
+        unused = imported_names - used_names
+
+        for name in unused:
+            self.issues.append(
+                Issue(
+                    file=self.file_path,
+                    line=0,
+                    type="UnusedImport",
+                    message=f"Import '{name}' is never used.",
+                )
+            )
