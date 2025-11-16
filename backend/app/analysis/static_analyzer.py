@@ -39,7 +39,8 @@ class StaticAnalyzer:
         self._check_long_functions(tree)
         self._check_unused_imports(tree)
         self._check_unused_variables(tree)
-        self._check_dangerous_calls(tree)  # NEW RULE
+        self._check_dangerous_calls(tree)
+        self._check_unreachable_code(tree)   # NEW RULE
 
         return self.issues
 
@@ -70,7 +71,6 @@ class StaticAnalyzer:
         imported_names = set()
         used_names = set()
 
-        # Collect imported names
         for node in ast.walk(tree):
             if isinstance(node, ast.Import):
                 for alias in node.names:
@@ -80,7 +80,6 @@ class StaticAnalyzer:
                 for alias in node.names:
                     imported_names.add(alias.asname or alias.name)
 
-        # Collect used names
         for node in ast.walk(tree):
             if isinstance(node, ast.Name):
                 used_names.add(node.id)
@@ -103,13 +102,11 @@ class StaticAnalyzer:
         used_vars = set()
 
         for node in ast.walk(tree):
-            # Track variable assignments
             if isinstance(node, ast.Assign):
                 for target in node.targets:
                     if isinstance(target, ast.Name):
                         assigned_vars.add(target.id)
 
-            # Track variable usage
             elif isinstance(node, ast.Name):
                 if isinstance(node.ctx, ast.Load):
                     used_vars.add(node.id)
@@ -132,7 +129,6 @@ class StaticAnalyzer:
 
         for node in ast.walk(tree):
             if isinstance(node, ast.Call):
-                # If the function is a simple name, like eval(x)
                 if isinstance(node.func, ast.Name):
                     func_name = node.func.id
                     if func_name in dangerous_funcs:
@@ -144,3 +140,25 @@ class StaticAnalyzer:
                                 message=f"Use of dangerous function '{func_name}()' detected.",
                             )
                         )
+
+    def _check_unreachable_code(self, tree: ast.AST):
+        """Detect unreachable code after return/raise/break/continue."""
+        control_flow_stoppers = (ast.Return, ast.Raise, ast.Break, ast.Continue)
+
+        for node in ast.walk(tree):
+            if isinstance(node, ast.FunctionDef):
+                body = node.body
+                stopped = False
+
+                for stmt in body:
+                    if stopped:
+                        self.issues.append(
+                            Issue(
+                                file=self.file_path,
+                                line=stmt.lineno,
+                                type="UnreachableCode",
+                                message="This code is unreachable.",
+                            )
+                        )
+                    if isinstance(stmt, control_flow_stoppers):
+                        stopped = True
