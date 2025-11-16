@@ -38,6 +38,7 @@ class StaticAnalyzer:
         # Run all checks
         self._check_long_functions(tree)
         self._check_unused_imports(tree)
+        self._check_unused_variables(tree)   # NEW RULE
 
         return self.issues
 
@@ -93,5 +94,34 @@ class StaticAnalyzer:
                     line=0,
                     type="UnusedImport",
                     message=f"Import '{name}' is never used.",
+                )
+            )
+
+    def _check_unused_variables(self, tree: ast.AST):
+        """Detect variables that are assigned but never used."""
+        assigned_vars = set()
+        used_vars = set()
+
+        for node in ast.walk(tree):
+            # Track variable assignments
+            if isinstance(node, ast.Assign):
+                for target in node.targets:
+                    if isinstance(target, ast.Name):
+                        assigned_vars.add(target.id)
+
+            # Track variable usage
+            elif isinstance(node, ast.Name):
+                if isinstance(node.ctx, ast.Load):
+                    used_vars.add(node.id)
+
+        unused = assigned_vars - used_vars
+
+        for name in unused:
+            self.issues.append(
+                Issue(
+                    file=self.file_path,
+                    line=0,
+                    type="UnusedVariable",
+                    message=f"Variable '{name}' is assigned but never used.",
                 )
             )
