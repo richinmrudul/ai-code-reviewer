@@ -38,7 +38,8 @@ class StaticAnalyzer:
         # Run all checks
         self._check_long_functions(tree)
         self._check_unused_imports(tree)
-        self._check_unused_variables(tree)   # NEW RULE
+        self._check_unused_variables(tree)
+        self._check_dangerous_calls(tree)  # NEW RULE
 
         return self.issues
 
@@ -84,7 +85,6 @@ class StaticAnalyzer:
             if isinstance(node, ast.Name):
                 used_names.add(node.id)
 
-        # Unused imports = imported but not referenced
         unused = imported_names - used_names
 
         for name in unused:
@@ -125,3 +125,22 @@ class StaticAnalyzer:
                     message=f"Variable '{name}' is assigned but never used.",
                 )
             )
+
+    def _check_dangerous_calls(self, tree: ast.AST):
+        """Detect dangerous function calls such as eval() and exec()."""
+        dangerous_funcs = {"eval", "exec"}
+
+        for node in ast.walk(tree):
+            if isinstance(node, ast.Call):
+                # If the function is a simple name, like eval(x)
+                if isinstance(node.func, ast.Name):
+                    func_name = node.func.id
+                    if func_name in dangerous_funcs:
+                        self.issues.append(
+                            Issue(
+                                file=self.file_path,
+                                line=node.lineno,
+                                type="DangerousCall",
+                                message=f"Use of dangerous function '{func_name}()' detected.",
+                            )
+                        )
