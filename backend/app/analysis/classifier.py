@@ -10,7 +10,7 @@ class CodeIssueClassifier:
 
     def __init__(self):
         # Placeholder: untrained model
-        # Later we will load a trained model or train one.
+        
         self.model = LogisticRegression()
         self.is_trained = False
 
