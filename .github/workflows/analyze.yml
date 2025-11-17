@@ -19,36 +19,40 @@ jobs:
           python-version: "3.10"
 
       - name: Build backend Docker image
-        run: |
-          docker build -t ai-code-reviewer-backend ./backend
+        run: docker build -t ai-code-reviewer-backend ./backend
 
       - name: Get changed files
         id: changes
         uses: tj-actions/changed-files@v35
 
-      - name: Run analysis on changed .py files
+      - name: Run analysis on changed Python files
         run: |
-          echo "[" > analysis_output.json
+          mkdir -p analysis
+          echo "[" > analysis/results.json
           first=true
+
           for file in ${{ steps.changes.outputs.all_changed_files }}; do
-            if [[ $file == *.py ]]; then
-              echo "Analyzing $file"
-              result=$(docker run ai-code-reviewer-backend \
-                curl -s -X POST "http://localhost:8000/analyze" \
-                -H "Content-Type: application/json" \
-                -d "{\"file_path\": \"$file\"}")
+            if [[ "$file" == *.py ]]; then
+              echo "Analyzing $file ..."
+
+              OUTPUT=$(docker run \
+                -v $GITHUB_WORKSPACE:/workspace \
+                ai-code-reviewer-backend \
+                python -m app.analysis.analyze_cli "/workspace/$file")
+
               if [ "$first" = true ]; then
+                echo "$OUTPUT" >> analysis/results.json
                 first=false
               else
-                echo "," >> analysis_output.json
+                echo ",$OUTPUT" >> analysis/results.json
               fi
-              echo "$result" >> analysis_output.json
             fi
           done
-          echo "]" >> analysis_output.json
 
-      - name: Comment results on PR
+          echo "]" >> analysis/results.json
+
+      - name: Post analysis comment
         uses: marocchino/sticky-pull-request-comment@v2
         with:
           recreate: true
-          path: analysis_output.json
+          path: analysis/results.json
