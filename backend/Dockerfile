@@ -1,20 +1,30 @@
 # Use Python 3.11 so SciPy and scikit-learn are supported
 FROM python:3.11-slim
 
+# Set working directory
 WORKDIR /app
 
+# Install system dependencies needed for SciPy / sklearn / build tools
 RUN apt-get update && apt-get install -y \
     git \
     build-essential \
     && rm -rf /var/lib/apt/lists/*
 
+# Copy requirements first to leverage Docker caching
 COPY requirements.txt /app/requirements.txt
 
+# Install Python dependencies
 RUN pip install --no-cache-dir --upgrade pip && \
     pip install --no-cache-dir -r requirements.txt
 
+# Copy backend application code
 COPY app /app/app
 
+# Fix GitHub Actions error: make CLI script executable
+RUN chmod +x /app/app/analyze_cli.py
+
+# Expose API port
 EXPOSE 8000
 
+# Start FastAPI server
 CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000"]
