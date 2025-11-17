@@ -16,7 +16,7 @@ jobs:
       - name: Set up Python
         uses: actions/setup-python@v4
         with:
-          python-version: '3.10'
+          python-version: "3.10"
 
       - name: Build backend Docker image
         run: docker build -t ai-code-reviewer-backend ./backend
@@ -38,7 +38,7 @@ jobs:
               OUTPUT=$(docker run \
                 -v $GITHUB_WORKSPACE:/workspace \
                 ai-code-reviewer-backend \
-                python -m app.analyze_cli "/workspace/$file")
+                "/workspace/$file")
 
               if [ "$first" = true ]; then
                 echo "$OUTPUT" >> analysis/results.json
