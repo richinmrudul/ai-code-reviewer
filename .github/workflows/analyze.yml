@@ -34,11 +34,11 @@ jobs:
           for file in ${{ steps.changes.outputs.all_changed_files }}; do
             if [[ "$file" == *.py ]]; then
               echo "Analyzing $file ..."
-              
+
               OUTPUT=$(docker run \
                 -v $GITHUB_WORKSPACE:/workspace \
                 ai-code-reviewer-backend \
-                "/workspace/$file")
+                python -m app.analyze_cli "/workspace/$file")
 
               if [ "$first" = true ]; then
                 echo "$OUTPUT" >> analysis/results.json
