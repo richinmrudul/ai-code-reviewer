@@ -38,7 +38,7 @@ jobs:
               OUTPUT=$(docker run \
                 -v $GITHUB_WORKSPACE:/workspace \
                 ai-code-reviewer-backend \
-                "/workspace/$file")
+                python -m app.analysis.analyze_cli "/workspace/$file")
 
               if [ "$first" = true ]; then
                 echo "$OUTPUT" >> analysis/results.json
