@@ -6,6 +6,7 @@ on:
 
 jobs:
   analyze:
+    name: Run Code Review Analysis
     runs-on: ubuntu-latest
 
     steps:
@@ -21,45 +22,32 @@ jobs:
         run: |
           docker build -t ai-code-reviewer-backend ./backend
 
-      - name: Start analyzer backend (FastAPI)
-        run: |
-          docker run -d --name analyzer -p 8000:8000 \
-            -v $GITHUB_WORKSPACE:/app \
-            ai-code-reviewer-backend
-          sleep 5  # wait for FastAPI server to start
-
       - name: Get changed files
         id: changes
         uses: tj-actions/changed-files@v35
 
-      - name: Initialize output file
-        run: echo "[]" > analysis_output.json
-
-      - name: Run analysis on changed files
+      - name: Run analysis on changed .py files
         run: |
-          echo "Changed files:"
-          echo "${{ steps.changes.outputs.all_changed_files }}"
-
+          echo "[" > analysis_output.json
+          first=true
           for file in ${{ steps.changes.outputs.all_changed_files }}; do
-            if [[ "$file" == *.py ]]; then
-              echo "Analyzing $file ..."
-
-              RESULT=$(curl -s -X POST "http://localhost:8000/analyze" \
+            if [[ $file == *.py ]]; then
+              echo "Analyzing $file"
+              result=$(docker run ai-code-reviewer-backend \
+                curl -s -X POST "http://localhost:8000/analyze" \
                 -H "Content-Type: application/json" \
-                -d "{\"file_path\": \"/app/$file\"}")
-
-              echo "$RESULT"
-              
-              # Append analysis to JSON array
-              jq ". + [$RESULT]" analysis_output.json > tmp.json && mv tmp.json analysis_output.json
+                -d "{\"file_path\": \"$file\"}")
+              if [ "$first" = true ]; then
+                first=false
+              else
+                echo "," >> analysis_output.json
+              fi
+              echo "$result" >> analysis_output.json
             fi
           done
+          echo "]" >> analysis_output.json
 
-      - name: Stop analyzer container
-        if: always()
-        run: docker stop analyzer
-
-      - name: Post summary comment
+      - name: Comment results on PR
         uses: marocchino/sticky-pull-request-comment@v2
         with:
           recreate: true
